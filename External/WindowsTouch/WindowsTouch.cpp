@@ -19,6 +19,7 @@ void decodeWin7Touches(WindowData *window, UINT msg, WPARAM wParam, LPARAM lPara
 void registerWindow(HWND window, int i);
 WindowData *lookupWindowByHandle(HWND hwnd);
 bool isFullscreen(HWND window);
+HWND findNewWindow();
 
 extern "C" 
 {
@@ -142,6 +143,7 @@ LRESULT CALLBACK wndProc7(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 void decodeWin8Touches(WindowData *window, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+	//TODO: Attribute touch to source display instead of focused window
 	int pointerId = GET_POINTERID_WPARAM(wParam);
 
 	POINTER_INFO pointerInfo;
