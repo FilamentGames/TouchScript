@@ -169,30 +169,29 @@ struct PointerData
 	INT32					tiltY;
 };
 
-typedef void(__stdcall * PointerDelegatePtr)(int id, UINT32 event, POINTER_INPUT_TYPE type, Vector2 position, PointerData data);
+struct WindowData
+{
+	HWND					handle = NULL;
+	LONG_PTR				oldWindowProc = NULL;
+	int						displayIndex;
+	int						screenWidth;
+	int						screenHeight;
+	float					offsetX = 0;
+	float					offsetY = 0;
+	float					scaleX = 1;
+	float					scaleY = 1;
+
+};
+
+typedef void(__stdcall * PointerDelegatePtr)(int displayIndex, int id, UINT32 event, POINTER_INPUT_TYPE type, Vector2 position, PointerData data);
 typedef void(__stdcall * LogFuncPtr)(BSTR log);
 
-PointerDelegatePtr			_delegate;
-LogFuncPtr					_log;
-HWND						_currentWindow;
-int							_screenWidth;
-int							_screenHeight;
-float						_offsetX = 0;
-float						_offsetY = 0;
-float						_scaleX = 1;
-float						_scaleY = 1;
-TOUCH_API					_api;
-LONG_PTR					_oldWindowProc;
 
 extern "C" 
 {
 	EXPORT_API void __stdcall Init(TOUCH_API api, LogFuncPtr logFunc, PointerDelegatePtr delegate);
-	EXPORT_API void __stdcall SetScreenParams(int width, int height, float offsetX, float offsetY, float scaleX, float scaleY);
+	EXPORT_API void __stdcall ActivateDisplay(int displayIndex);
+	EXPORT_API void __stdcall SetScreenParams(int displayIndex, int screenWidth, int screenHeight);
 	EXPORT_API void __stdcall Dispose();
 }
 
-void log(const wchar_t* str);
-LRESULT CALLBACK wndProc8(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK wndProc7(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-void decodeWin8Touches(UINT msg, WPARAM wParam, LPARAM lParam);
-void decodeWin7Touches(UINT msg, WPARAM wParam, LPARAM lParam);

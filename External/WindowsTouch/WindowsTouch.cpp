@@ -4,6 +4,22 @@
 
 #include "WindowsTouch.h"
 
+#define MAX_WINDOWS	3
+
+PointerDelegatePtr			_delegate;
+LogFuncPtr					_log;
+WindowData					_windows[MAX_WINDOWS];
+TOUCH_API					_api;
+
+void log(const wchar_t* str);
+LRESULT CALLBACK wndProc8(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK wndProc7(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+void decodeWin8Touches(WindowData *window, UINT msg, WPARAM wParam, LPARAM lParam);
+void decodeWin7Touches(WindowData *window, UINT msg, WPARAM wParam, LPARAM lParam);
+void registerWindow(HWND window, int i);
+WindowData *lookupWindowByHandle(HWND hwnd);
+bool isFullscreen(HWND window);
+
 extern "C" 
 {
 
@@ -12,53 +28,78 @@ extern "C"
 		_log = logFunc;
 		_delegate = delegate;
 		_api = api;
+	}
 
-		_currentWindow = FindWindowA("UnityWndClass", NULL);
-		if (api == WIN8)
-		{
-			HINSTANCE h = LoadLibrary(TEXT("user32.dll"));
-			GetPointerInfo = (GET_POINTER_INFO) GetProcAddress(h, "GetPointerInfo");
-			GetPointerTouchInfo = (GET_POINTER_TOUCH_INFO) GetProcAddress(h, "GetPointerTouchInfo");
-			GetPointerPenInfo = (GET_POINTER_PEN_INFO)GetProcAddress(h, "GetPointerPenInfo");
-
-			_oldWindowProc = SetWindowLongPtr(_currentWindow, GWLP_WNDPROC, (LONG_PTR)wndProc8);
-			log(L"Initialized WIN8 input.");
-		}
-		else
-		{
-			RegisterTouchWindow(_currentWindow, 0);
-			_oldWindowProc = SetWindowLongPtr(_currentWindow, GWLP_WNDPROC, (LONG_PTR)wndProc7);
-			log(L"Initialized WIN7 input.");
-		}
+	void __stdcall ActivateDisplay(int displayIndex)
+	{
+		HWND window = findNewWindow();
+		registerWindow(window, displayIndex);
 	}
 
 	void __stdcall Dispose()
 	{
-		if (_oldWindowProc)
+		for (int i = 0; i < MAX_WINDOWS; i++)
 		{
-			SetWindowLongPtr(_currentWindow, GWLP_WNDPROC, (LONG_PTR)_oldWindowProc);
-			_oldWindowProc = 0;
-			if (_api == WIN7)
+			WindowData *window = &_windows[i];
+			if (window->oldWindowProc)
 			{
-				UnregisterTouchWindow(_currentWindow);
+				SetWindowLongPtr(window->handle, GWLP_WNDPROC, (LONG_PTR)window->oldWindowProc);
+				window->oldWindowProc = NULL;
+				if (_api == WIN7)
+				{
+					UnregisterTouchWindow(window->handle);
+				}
 			}
 		}
 	}
 
-	void __stdcall SetScreenParams(int width, int height, float offsetX, float offsetY, float scaleX, float scaleY)
+	void __stdcall SetScreenParams(int displayIndex, int screenWidth, int screenHeight)
 	{
-		_screenWidth = width;
-		_screenHeight = height;
-		_offsetX = offsetX;
-		_offsetY = offsetY;
-		_scaleX = scaleX;
-		_scaleY = scaleY;
-	}
+		WindowData *window = &_windows[displayIndex];
 
+		if (!window->handle)
+		{
+			//TODO: Log message that the handle isn't initialized yet
+			return;
+		}
+
+		window->screenWidth = screenWidth;
+		window->screenHeight = screenHeight;
+
+		HMONITOR monitor = MonitorFromWindow(window->handle, MONITOR_DEFAULTTONULL);
+		MONITORINFO monitorInfo;
+		if (GetMonitorInfo(monitor, &monitorInfo))
+		{
+			int nativeWidth = monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
+			int nativeHeight = monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top;
+
+			if (isFullscreen(window->handle))
+			{
+				float scale = max(screenWidth / ((float)nativeWidth), screenHeight / ((float)nativeHeight));
+				window->offsetX = (nativeWidth - screenWidth / scale) * .5f;
+				window->offsetY = (nativeHeight - screenHeight / scale) * .5f;
+				window->scaleX = scale;
+				window->scaleY = scale;
+			}
+			else
+			{
+				window->offsetX = 0;
+				window->offsetY = 0;
+				window->scaleX = 1;
+				window->scaleY = 1;
+			}
+		}
+		else
+		{
+			//TODO: Log problem getting monitor info
+		}
+	}
 }
 
 LRESULT CALLBACK wndProc8(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+	WindowData *window = lookupWindowByHandle(hwnd);
+
 	switch (msg)
 	{
 	case WM_TOUCH:
@@ -70,28 +111,36 @@ LRESULT CALLBACK wndProc8(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	case WM_POINTERUP:
 	case WM_POINTERUPDATE:
 	case WM_POINTERCAPTURECHANGED:
-		decodeWin8Touches(msg, wParam, lParam);
+		decodeWin8Touches(window, msg, wParam, lParam);
 		break;
 	default:
-		return CallWindowProc((WNDPROC)_oldWindowProc, hwnd, msg, wParam, lParam);
+		if (window)
+		{
+			return CallWindowProc((WNDPROC)window->oldWindowProc, hwnd, msg, wParam, lParam);
+		}
 	}
 	return 0;
 }
 
 LRESULT CALLBACK wndProc7(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+	WindowData *window = lookupWindowByHandle(hwnd);
+
 	switch (msg)
 	{
 	case WM_TOUCH:
-		decodeWin7Touches(msg, wParam, lParam);
+		decodeWin7Touches(window, msg, wParam, lParam);
 		break;
 	default:
-		return CallWindowProc((WNDPROC)_oldWindowProc, hwnd, msg, wParam, lParam);
+		if (window)
+		{
+			return CallWindowProc((WNDPROC)window->oldWindowProc, hwnd, msg, wParam, lParam);
+		}
 	}
 	return 0;
 }
 
-void decodeWin8Touches(UINT msg, WPARAM wParam, LPARAM lParam)
+void decodeWin8Touches(WindowData *window, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	int pointerId = GET_POINTERID_WPARAM(wParam);
 
@@ -101,9 +150,9 @@ void decodeWin8Touches(UINT msg, WPARAM wParam, LPARAM lParam)
 	POINT p;
 	p.x = pointerInfo.ptPixelLocation.x;
 	p.y = pointerInfo.ptPixelLocation.y;
-	ScreenToClient(_currentWindow, &p);
+	ScreenToClient(window->handle, &p);
 
-	Vector2 position = Vector2(((float)p.x - _offsetX) * _scaleX, _screenHeight - ((float)p.y - _offsetY) * _scaleY);
+	Vector2 position = Vector2(((float)p.x - window->offsetX) * window->scaleX, window->screenHeight - ((float)p.y - window->offsetY) * window->scaleY);
 	PointerData data {};
 	data.pointerFlags = pointerInfo.pointerFlags;
 	data.changedButtons = pointerInfo.ButtonChangeType;
@@ -135,10 +184,10 @@ void decodeWin8Touches(UINT msg, WPARAM wParam, LPARAM lParam)
 		break;
 	}
 
-	_delegate(pointerId, msg, pointerInfo.pointerType, position, data);
+	_delegate(window->displayIndex, pointerId, msg, pointerInfo.pointerType, position, data);
 }
 
-void decodeWin7Touches(UINT msg, WPARAM wParam, LPARAM lParam)
+void decodeWin7Touches(WindowData *window, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	UINT cInputs = LOWORD(wParam);
 	PTOUCHINPUT pInputs = new TOUCHINPUT[cInputs];
@@ -153,9 +202,9 @@ void decodeWin7Touches(UINT msg, WPARAM wParam, LPARAM lParam)
 		POINT p;
 		p.x = touch.x / 100;
 		p.y = touch.y / 100;
-		ScreenToClient(_currentWindow, &p);
+		ScreenToClient(window->handle, &p);
 
-		Vector2 position = Vector2(((float)p.x - _offsetX) * _scaleX, _screenHeight - ((float)p.y - _offsetY) * _scaleY);
+		Vector2 position = Vector2(((float)p.x - window->offsetX) * window->scaleX, window->screenHeight - ((float)p.y - window->offsetY) * window->scaleY);
 		PointerData data {};
 
 		if ((touch.dwFlags & TOUCHEVENTF_DOWN) != 0)
@@ -173,7 +222,7 @@ void decodeWin7Touches(UINT msg, WPARAM wParam, LPARAM lParam)
 			msg = WM_POINTERUPDATE;
 		}
 
-		_delegate(touch.dwID, msg, PT_TOUCH, position, data);
+		_delegate(window->displayIndex, touch.dwID, msg, PT_TOUCH, position, data);
 	}
 
 	CloseTouchInputHandle((HTOUCHINPUT)lParam);
@@ -187,4 +236,80 @@ void log(const wchar_t* str)
 	_log(bstr);
 	SysFreeString(bstr);
 #endif
+}
+
+void registerWindow(HWND window, int i)
+{
+	WindowData *currentWindow = &_windows[i];
+	currentWindow->displayIndex = i;
+	
+	if (_api == WIN8)
+	{
+		HINSTANCE h = LoadLibrary(TEXT("user32.dll"));
+		GetPointerInfo = (GET_POINTER_INFO)GetProcAddress(h, "GetPointerInfo");
+		GetPointerTouchInfo = (GET_POINTER_TOUCH_INFO)GetProcAddress(h, "GetPointerTouchInfo");
+		GetPointerPenInfo = (GET_POINTER_PEN_INFO)GetProcAddress(h, "GetPointerPenInfo");
+
+		currentWindow->oldWindowProc = SetWindowLongPtr(currentWindow->handle, GWLP_WNDPROC, (LONG_PTR)wndProc8);
+		log(L"Initialized WIN8 input.");
+	}
+	else
+	{
+		RegisterTouchWindow(currentWindow->handle, 0);
+		currentWindow->oldWindowProc = SetWindowLongPtr(currentWindow->handle, GWLP_WNDPROC, (LONG_PTR)wndProc7);
+		log(L"Initialized WIN7 input.");
+	}
+}
+
+WindowData *lookupWindowByHandle(HWND hwnd)
+{
+	for (int i = 0; i < MAX_WINDOWS; i++)
+	{
+		if (_windows[i].handle == hwnd)
+		{
+			return &_windows[i];
+		}
+	}
+
+	return NULL;
+}
+
+bool isFullscreen(HWND window)
+{
+	RECT a, b;
+	GetWindowRect(window, &a);
+	GetWindowRect(GetDesktopWindow(), &b);
+	return (a.left == b.left  &&
+		a.top == b.top   &&
+		a.right == b.right &&
+		a.bottom == b.bottom);
+}
+
+WindowData *findWindowDataByHandle(HWND handle)
+{
+	for (int i = 0; i < MAX_WINDOWS; i++)
+	{
+		WindowData *windowData = &_windows[i];
+		if (windowData->handle == handle)
+		{
+			return windowData;
+		}
+	}
+
+	return NULL;
+}
+
+HWND findNewWindow()
+{
+	HWND window = NULL;
+
+	while ((window = FindWindowExA(NULL, window, "UnityWndClass", NULL)))
+	{
+		if (!findWindowDataByHandle(window))
+		{
+			return window;
+		}
+	}
+
+	return NULL;
 }
