@@ -26,10 +26,10 @@ extern "C"
 
 	void __stdcall Init(TOUCH_API api, LogFuncPtr logFunc, PointerDelegatePtr delegate)
 	{
-		log("Init");
 		_log = logFunc;
 		_delegate = delegate;
 		_api = api;
+		log("Init");
 	}
 
 	void __stdcall ActivateTouchDisplay(int displayIndex, int screenWidth, int screenHeight)
