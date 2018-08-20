@@ -155,10 +155,7 @@ LRESULT CALLBACK wndProc8(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		decodeWin8Touches(window, msg, wParam, lParam);
 		break;
 	default:
-		if (window)
-		{
-			return CallWindowProc((WNDPROC)window->oldWindowProc, hwnd, msg, wParam, lParam);
-		}
+		return CallWindowProc((WNDPROC)window->oldWindowProc, hwnd, msg, wParam, lParam);
 	}
 	return 0;
 }
@@ -177,10 +174,7 @@ LRESULT CALLBACK wndProc7(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		decodeWin7Touches(window, msg, wParam, lParam);
 		break;
 	default:
-		if (window)
-		{
-			return CallWindowProc((WNDPROC)window->oldWindowProc, hwnd, msg, wParam, lParam);
-		}
+		return CallWindowProc((WNDPROC)window->oldWindowProc, hwnd, msg, wParam, lParam);
 	}
 	return 0;
 }
