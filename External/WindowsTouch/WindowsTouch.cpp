@@ -31,10 +31,11 @@ extern "C"
 		_api = api;
 	}
 
-	void __stdcall ActivateDisplay(int displayIndex)
+	void __stdcall ActivateTouchDisplay(int displayIndex, int screenWidth, int screenHeight)
 	{
 		HWND window = findNewWindow();
 		registerWindow(window, displayIndex);
+		SetScreenParams(displayIndex, screenWidth, screenHeight);
 	}
 
 	void __stdcall Dispose()
@@ -50,6 +51,7 @@ extern "C"
 				{
 					UnregisterTouchWindow(window->handle);
 				}
+				window->handle = NULL;
 			}
 		}
 	}
@@ -93,6 +95,28 @@ extern "C"
 		else
 		{
 			//TODO: Log problem getting monitor info
+		}
+	}
+
+	void __stdcall SetScreenTouchProperties(LPCSTR lpString, HANDLE hData)
+	{
+		for (int i = 0; i < MAX_WINDOWS; i++)
+		{
+			WindowData *window = &_windows[i];
+			if (window->handle) {
+				SetPropA(window->handle, lpString, hData);
+			}
+		}
+	}
+
+	void __stdcall RemoveScreenTouchProperties(LPCSTR lpString)
+	{
+		for (int i = 0; i < MAX_WINDOWS; i++)
+		{
+			WindowData *window = &_windows[i];
+			if (window->handle) {
+				RemovePropA(window->handle, lpString);
+			}
 		}
 	}
 }
@@ -244,6 +268,7 @@ void registerWindow(HWND window, int i)
 {
 	WindowData *currentWindow = &_windows[i];
 	currentWindow->displayIndex = i;
+	currentWindow->handle = window;
 	
 	if (_api == WIN8)
 	{

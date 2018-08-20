@@ -190,8 +190,10 @@ typedef void(__stdcall * LogFuncPtr)(BSTR log);
 extern "C" 
 {
 	EXPORT_API void __stdcall Init(TOUCH_API api, LogFuncPtr logFunc, PointerDelegatePtr delegate);
-	EXPORT_API void __stdcall ActivateDisplay(int displayIndex);
+	EXPORT_API void __stdcall ActivateTouchDisplay(int displayIndex, int screenWidth, int screenHeight);
 	EXPORT_API void __stdcall SetScreenParams(int displayIndex, int screenWidth, int screenHeight);
 	EXPORT_API void __stdcall Dispose();
+	EXPORT_API void __stdcall SetScreenTouchProperties(LPCSTR lpString, HANDLE hData);
+	EXPORT_API void __stdcall RemoveScreenTouchProperties(LPCSTR lpString);
 }
 
