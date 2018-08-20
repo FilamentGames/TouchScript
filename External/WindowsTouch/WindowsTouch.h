@@ -185,7 +185,7 @@ struct WindowData
 };
 
 typedef void(__stdcall * PointerDelegatePtr)(int displayIndex, int id, UINT32 event, POINTER_INPUT_TYPE type, Vector2 position, PointerData data);
-typedef void(__stdcall * LogFuncPtr)(BSTR log);
+typedef void(__stdcall * LogFuncPtr)(LPCSTR log);
 
 
 extern "C" 

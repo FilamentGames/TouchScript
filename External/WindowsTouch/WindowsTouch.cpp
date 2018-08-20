@@ -11,7 +11,7 @@ LogFuncPtr					_log;
 WindowData					_windows[MAX_WINDOWS];
 TOUCH_API					_api;
 
-void log(const wchar_t* str);
+void log(const char* str);
 LRESULT CALLBACK wndProc8(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK wndProc7(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 void decodeWin8Touches(WindowData *window, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -26,6 +26,7 @@ extern "C"
 
 	void __stdcall Init(TOUCH_API api, LogFuncPtr logFunc, PointerDelegatePtr delegate)
 	{
+		log("Init");
 		_log = logFunc;
 		_delegate = delegate;
 		_api = api;
@@ -33,6 +34,7 @@ extern "C"
 
 	void __stdcall ActivateTouchDisplay(int displayIndex, int screenWidth, int screenHeight)
 	{
+		log("Activating touch display");
 		HWND window = findNewWindow();
 		registerWindow(window, displayIndex);
 		SetScreenParams(displayIndex, screenWidth, screenHeight);
@@ -62,7 +64,7 @@ extern "C"
 
 		if (!window->handle)
 		{
-			//TODO: Log message that the handle isn't initialized yet
+			log("[SetScreenParams] Handle is not initialized");
 			return;
 		}
 
@@ -97,7 +99,7 @@ extern "C"
 		}
 		else
 		{
-			//TODO: Log problem getting monitor info
+			log("[SetScreenParams] Failed to retrieve monitor information for display");
 		}
 	}
 
@@ -260,17 +262,19 @@ void decodeWin7Touches(WindowData *window, UINT msg, WPARAM wParam, LPARAM lPara
 	delete[] pInputs;
 }
 
-void log(const wchar_t* str)
+void log(const char* str)
 {
 #if _DEBUG
-	BSTR bstr = SysAllocString(str);
-	_log(bstr);
-	SysFreeString(bstr);
+	if (_log)
+	{
+		_log(str);
+	}
 #endif
 }
 
 void registerWindow(HWND window, int i)
 {
+	log("Registering new window.");
 	WindowData *currentWindow = &_windows[i];
 	currentWindow->displayIndex = i;
 	currentWindow->handle = window;
@@ -283,13 +287,13 @@ void registerWindow(HWND window, int i)
 		GetPointerPenInfo = (GET_POINTER_PEN_INFO)GetProcAddress(h, "GetPointerPenInfo");
 
 		currentWindow->oldWindowProc = SetWindowLongPtr(currentWindow->handle, GWLP_WNDPROC, (LONG_PTR)wndProc8);
-		log(L"Initialized WIN8 input.");
+		log("Initialized WIN8 input.");
 	}
 	else
 	{
 		RegisterTouchWindow(currentWindow->handle, 0);
 		currentWindow->oldWindowProc = SetWindowLongPtr(currentWindow->handle, GWLP_WNDPROC, (LONG_PTR)wndProc7);
-		log(L"Initialized WIN7 input.");
+		log("Initialized WIN7 input.");
 	}
 }
 
