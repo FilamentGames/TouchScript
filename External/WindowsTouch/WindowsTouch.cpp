@@ -14,12 +14,13 @@ TOUCH_API					_api;
 void log(const char* str);
 LRESULT CALLBACK wndProc8(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK wndProc7(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-void decodeWin8Touches(WindowData *window, UINT msg, WPARAM wParam, LPARAM lParam);
+void decodeWin8Touches(UINT msg, WPARAM wParam, LPARAM lParam);
 void decodeWin7Touches(WindowData *window, UINT msg, WPARAM wParam, LPARAM lParam);
 void registerWindow(HWND window, int i);
 WindowData *lookupWindowByHandle(HWND hwnd);
 bool isFullscreen(HWND window);
 HWND findNewWindow();
+WindowData *findWindowDataByHandle(HWND handle);
 
 extern "C" 
 {
@@ -152,7 +153,7 @@ LRESULT CALLBACK wndProc8(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	case WM_POINTERUP:
 	case WM_POINTERUPDATE:
 	case WM_POINTERCAPTURECHANGED:
-		decodeWin8Touches(window, msg, wParam, lParam);
+		decodeWin8Touches(msg, wParam, lParam);
 		break;
 	default:
 		return CallWindowProc((WNDPROC)window->oldWindowProc, hwnd, msg, wParam, lParam);
@@ -179,13 +180,20 @@ LRESULT CALLBACK wndProc7(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
-void decodeWin8Touches(WindowData *window, UINT msg, WPARAM wParam, LPARAM lParam)
+void decodeWin8Touches(UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	//TODO: Attribute touch to source display instead of focused window
 	int pointerId = GET_POINTERID_WPARAM(wParam);
 
 	POINTER_INFO pointerInfo;
 	if (!GetPointerInfo(pointerId, &pointerInfo)) return;
+
+	WindowData *window = findWindowDataByHandle(pointerInfo.hwndTarget);
+
+	if (!window)
+	{
+		return;
+	}
 
 	POINT p;
 	p.x = pointerInfo.ptPixelLocation.x;
