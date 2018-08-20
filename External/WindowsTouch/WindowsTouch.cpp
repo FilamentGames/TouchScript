@@ -36,8 +36,15 @@ extern "C"
 	{
 		log("Activating touch display");
 		HWND window = findNewWindow();
-		registerWindow(window, displayIndex);
-		SetScreenParams(displayIndex, screenWidth, screenHeight);
+		if (window)
+		{
+			registerWindow(window, displayIndex);
+			SetScreenParams(displayIndex, screenWidth, screenHeight);
+		}
+		else
+		{
+			log("Failed to find new window");
+		}
 	}
 
 	void __stdcall Dispose()
@@ -129,6 +136,10 @@ extern "C"
 LRESULT CALLBACK wndProc8(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	WindowData *window = lookupWindowByHandle(hwnd);
+	if (!window)
+	{
+		return 0;
+	}
 
 	switch (msg)
 	{
@@ -155,6 +166,10 @@ LRESULT CALLBACK wndProc8(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 LRESULT CALLBACK wndProc7(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	WindowData *window = lookupWindowByHandle(hwnd);
+	if (!window)
+	{
+		return 0;
+	}
 
 	switch (msg)
 	{
