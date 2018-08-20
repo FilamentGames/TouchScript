@@ -159,6 +159,7 @@ struct Vector2
 
 struct PointerData
 {
+	HANDLE					sourceDevice;
 	POINTER_FLAGS			pointerFlags;
 	UINT32					flags;
 	UINT32					mask;

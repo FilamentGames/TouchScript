@@ -71,6 +71,9 @@ extern "C"
 
 		HMONITOR monitor = MonitorFromWindow(window->handle, MONITOR_DEFAULTTONULL);
 		MONITORINFO monitorInfo;
+		ZeroMemory(&monitorInfo, sizeof(MONITORINFO));
+		monitorInfo.cbSize = sizeof(MONITORINFO);
+
 		if (GetMonitorInfo(monitor, &monitorInfo))
 		{
 			int nativeWidth = monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left;
@@ -193,6 +196,7 @@ void decodeWin8Touches(WindowData *window, UINT msg, WPARAM wParam, LPARAM lPara
 	case PT_TOUCH:
 		POINTER_TOUCH_INFO touchInfo;
 		GetPointerTouchInfo(pointerId, &touchInfo);
+		data.sourceDevice = touchInfo.pointerInfo.sourceDevice;
 		data.flags = touchInfo.touchFlags;
 		data.mask = touchInfo.touchMask;
 		data.rotation = touchInfo.orientation;
@@ -201,6 +205,7 @@ void decodeWin8Touches(WindowData *window, UINT msg, WPARAM wParam, LPARAM lPara
 	case PT_PEN:
 		POINTER_PEN_INFO penInfo;
 		GetPointerPenInfo(pointerId, &penInfo);
+		data.sourceDevice = penInfo.pointerInfo.sourceDevice;
 		data.flags = penInfo.penFlags;
 		data.mask = penInfo.penMask;
 		data.rotation = penInfo.rotation;
